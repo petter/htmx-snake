@@ -9,6 +9,15 @@ const app = new Hono();
 
 const engine = new SnakeEngine();
 
+async function gameLoop() {
+  while (true) {
+    engine.step();
+    await new Promise((r) => setTimeout(r, 150));
+  }
+}
+
+gameLoop();
+
 app.get("/", (c) => {
   return c.html(<HomePage />);
 });
@@ -32,13 +41,8 @@ app.get("/snake", (c) => {
   );
 
   return streamSSE(c, async (stream) => {
-    stream.onAbort(() => {
-      dead = true;
-      engine.removeSnake(mySnake);
-    });
-
-    while (!dead) {
-      await stream.writeSSE({
+    function subscriber() {
+      stream.writeSSE({
         event: "tick",
         data: String(
           <>
@@ -51,9 +55,14 @@ app.get("/snake", (c) => {
         ),
         id: String(tick++),
       });
-      await stream.sleep(150);
-      engine.step();
     }
+
+    stream.onAbort(() => {
+      engine.unsubscribe(subscriber);
+      engine.removeSnake(mySnake);
+    });
+
+    engine.subscribe(subscriber);
   });
 });
 

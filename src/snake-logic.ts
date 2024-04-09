@@ -1,3 +1,5 @@
+import { EventEmitter } from "node:events";
+
 type Dir = "up" | "down" | "left" | "right";
 type Pos = [number, number];
 
@@ -12,11 +14,20 @@ export interface Snake {
 export class SnakeEngine {
   gridSize = 20;
   initialSnakeLength = 3;
+  private emitter = new EventEmitter();
   private nextSnakeId = 0;
   private _snakes: Record<number, Snake> = {};
   get snakes() {
     return this._snakes;
   }
+
+  subscribe = (cb: () => void) => {
+    this.emitter.on("tick", cb);
+  };
+
+  unsubscribe = (cb: () => void) => {
+    this.emitter.off("tick", cb);
+  };
 
   addSnake = (color: string): number => {
     const id = this.nextSnakeId++;
@@ -49,6 +60,8 @@ export class SnakeEngine {
       snake.dir = this.calcNextSnakeDir(snake, pressedKey);
       snake.snake = this.calcNextSnake(snake);
     });
+
+    this.emitter.emit("tick");
   };
 
   private calcNextSnakeDir = (
